@@ -27,9 +27,13 @@ class Camera(QThread):
         self.fingers = dict()
 
         # Media Pipe Hand detection
-        mpHands = mp.solutions.hands
-        self.hands = mpHands.Hands(max_num_hands=1)
+        self.mpHands = mp.solutions.hands
+        self.hands = self.mpHands.Hands(max_num_hands=2)
         self.mpDraw = mp.solutions.drawing_utils
+
+        # Media Pipe Face Detection
+        mpFaceDetection = mp.solutions.face_detection
+        self.faceDetection = mpFaceDetection.FaceDetection()
 
         self.url= 0
 
@@ -69,6 +73,8 @@ class Camera(QThread):
             ret, frame = self.Capture.read()    # Read Camera
             if ret == False:
                 continue
+                
+            frame = cv2.flip(frame,1)
 
             # Rotate Right  
             if self.orientation==1:
@@ -107,18 +113,47 @@ class Camera(QThread):
                         if handLabel == "Left":
                             if handLandmarks[4][0] > handLandmarks[3][0]:
                                 fingerCount = fingerCount+1
-                                cv2.putText(frame, 'Left Hand', (100, 450), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 0), 10)
                                 
                         elif handLabel == "Right":
                             if handLandmarks[4][0] < handLandmarks[3][0]:
                                 fingerCount = fingerCount+1
-                                cv2.putText(frame, 'Right Hand', (100, 450), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 0), 10)
+
+                        if handLandmarks[8][1] < handLandmarks[6][1]:       #Index finger
+                            fingerCount = fingerCount+1
+
+                        if handLandmarks[12][1] < handLandmarks[10][1]:     #Middle finger
+                            fingerCount = fingerCount+1
+
+                        if handLandmarks[16][1] < handLandmarks[14][1]:     #Ring finger
+                            fingerCount = fingerCount+1
+
+                        if handLandmarks[20][1] < handLandmarks[18][1]:     #Pinky
+                            fingerCount = fingerCount+1
 
                 # Display finger count
-                cv2.putText(frame, str(fingerCount), (50, 450), cv2.FONT_HERSHEY_SIMPLEX, 3, (255, 0, 0), 10)
+                try:
+                    cv2.putText(frame, f'{handLabel} Hand - {fingerCount} fingers', (20, 450), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 5)
+                except UnboundLocalError:
+                    pass
 
             elif self.mode=='face':
-                pass
+                 # Convert to RGB
+                imgRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+                # Detect the faces
+                results = self.faceDetection.process(imgRGB)
+
+                # Show Detected Faces
+                if results.detections:
+                    for detection in results.detections:
+                        bboxC = detection.location_data.relative_bounding_box
+                        ih,iw,_ = frame.shape
+                        x,y,w,h = int(bboxC.xmin*iw),int(bboxC.ymin*ih),int(bboxC.width*iw),int(bboxC.height*ih)
+
+                        # Draw Boundary Box around face
+                        cv2.rectangle(frame,[x,y,w,h],(255,0,0),2)
+                        cv2.putText(frame, 'Yehia', (x+5,y-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
             # Display RGB Image
             Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)                
