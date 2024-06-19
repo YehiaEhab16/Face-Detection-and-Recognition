@@ -24,14 +24,14 @@ FormClass, _ = loadUiType(ntpath.join(os.getcwd(), './UI/main.ui'))
 
 # Define main window
 class InmoovArm (QWidget, FormClass):
-    def __init__(self, parent=None):
-        super(InmoovArm, self).__init__(parent)
+    def __init__(self):
+        super(InmoovArm, self).__init__()
         QWidget.__init__(self)
         self.setupUi(self)
         self.Handle_Buttons()   # Handle GUI Buttons
                 
         # Camera 1 Thread
-        self.Camera1 = cam.Camera()
+        self.Camera1 = cam.Camera(self)
         self.Camera1.imageUpdate.connect(self.Handle_UpdateCam1)
         self.Camera1.start()
 
@@ -39,6 +39,7 @@ class InmoovArm (QWidget, FormClass):
     def Handle_Buttons(self):
         self.hand.clicked.connect(self.Handle_HandDetection)               # Hand Detection Button
         self.face.clicked.connect(self.Handle_FaceDetection)               # Face Detection Button
+        self.currency.clicked.connect(self.Handle_CurrencyDetection)       # Currency Detection Button
         self.rotateR.clicked.connect(self.Handle_RotateR)                  # Rotate Right Function            
         self.rotateL.clicked.connect(self.Handle_RotateL)                  # Rotate Left Function                     
         self.togCam.stateChanged.connect(self.Handle_ToggleCamera)         # Toggle Camera 
@@ -64,13 +65,29 @@ class InmoovArm (QWidget, FormClass):
         Pic = ConvertToQtFormat.scaled(self.cam1.width(), self.cam1.height())
         self.cam1.setPixmap(QPixmap.fromImage(Pic))  # Update Label
 
-    # Manual Button
+    # Hand Detection Button
     def Handle_HandDetection(self):
+        self.detected.setText('')
+        self.number.setText('')
+        self.detection.setText('Hand:  ')
+        self.data.setText('Fingers:  ')
         self.Camera1.setHandsMode()
 
-    # Automatic Button
+    # Face Detection Button
     def Handle_FaceDetection(self):
+        self.detected.setText('')
+        self.number.setText('')
+        self.detection.setText('Person:  ')
+        self.data.setText('Probability:  ')
         self.Camera1.setFaceMode()
+    
+    # Currency Detection Button
+    def Handle_CurrencyDetection(self):
+        self.detected.setText('')
+        self.number.setText('')
+        self.detection.setText('Currency:  ')
+        self.data.setText('Probability:  ')
+        self.Camera1.setCurrencyMode()
     
     # Exit Button
     def Handle_Exit(self):
