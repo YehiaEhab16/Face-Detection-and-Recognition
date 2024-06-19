@@ -9,7 +9,7 @@
 
 # Importing PyQT packages
 from PyQt5.QtWidgets import QApplication,QWidget,QMessageBox
-from PyQt5.QtCore import Qt,QTimer
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap,QImage
 from PyQt5.uic import loadUiType
 
@@ -28,6 +28,7 @@ class InmoovArm (QWidget, FormClass):
         super(InmoovArm, self).__init__()
         QWidget.__init__(self)
         self.setupUi(self)
+        self.camState=0
         self.Handle_Buttons()   # Handle GUI Buttons
                 
         # Camera 1 Thread
@@ -47,23 +48,26 @@ class InmoovArm (QWidget, FormClass):
 
     # Toggle Camera Visibility
     def Handle_ToggleCamera(self,state):
-        if state==0:
+        self.camState = state
+        if self.camState==0:
             self.Camera1.start()
         else:
-            self.cam1.setPixmap(QPixmap('./Images/Solid_black.png'))
             self.Camera1.terminate()   
 
     def Handle_RotateR(self):
-        self.Camera1.rotate('right')
+        self.Camera1.rotateRight()
 
     def Handle_RotateL(self):
-        self.Camera1.rotate('left')
+        self.Camera1.rotateLeft()
 
     # Camera Feed Function
     def Handle_UpdateCam1(self,pic):
-        ConvertToQtFormat = QImage(pic.data, pic.shape[1], pic.shape[0], QImage.Format_RGB888)
-        Pic = ConvertToQtFormat.scaled(self.cam1.width(), self.cam1.height())
-        self.cam1.setPixmap(QPixmap.fromImage(Pic))  # Update Label
+        if self.camState==0:
+            ConvertToQtFormat = QImage(pic.data, pic.shape[1], pic.shape[0], QImage.Format_RGB888)
+            Pic = ConvertToQtFormat.scaled(self.cam1.width(), self.cam1.height())
+            self.cam1.setPixmap(QPixmap.fromImage(Pic))  # Update Label
+        else:
+            self.cam1.setPixmap(QPixmap('./Images/Solid_black.png'))
 
     # Hand Detection Button
     def Handle_HandDetection(self):

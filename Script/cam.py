@@ -80,19 +80,17 @@ class Camera(QThread):
     def setCurrencyMode(self):
         self.mode='currency'
 
-    def rotate(self,direction):
-        # Rotate Right
-        if direction == 'right':
-            if self.orientation==2:
-                self.orientation=-1
-            else:
-                self.orientation+=1
-		# Rotate Left
-        elif direction == 'left':
-            if self.orientation==-2:
-                self.orientation=1
-            else:
-                self.orientation-=1
+    def rotateRight(self):
+        if self.orientation==2:
+            self.orientation=-1
+        else:
+            self.orientation+=1
+    
+    def rotateLeft(self):
+        if self.orientation==-2:
+            self.orientation=1
+        else:
+            self.orientation-=1
 
     def hand_mode(self,frame):
         fingerCount=0
