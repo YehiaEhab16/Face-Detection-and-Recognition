@@ -20,6 +20,7 @@ import cv2
 
 # Trained Model Path
 CURRENCY_MODEL_PATH = 'currency_model.pth'
+FACE_MODEL_PATH     = 'face_model.pth'
 
 # Camera Thread
 class Camera(QThread):
@@ -46,24 +47,35 @@ class Camera(QThread):
 
         # PyTorch Device
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.class_names = ['egp_10', 'egp_100', 'egp_10_new', 'egp_20', 'egp_200', 'egp_20_new', 'egp_5', 'egp_50']
+        self.class_currency = ['egp_10', 'egp_100', 'egp_10_new', 'egp_20', 'egp_200', 'egp_20_new', 'egp_5', 'egp_50']
+        self.class_faces = ['Mohamed','Yehia']
 
         # Load Trained Model
         weights = torchvision.models.EfficientNet_B0_Weights.DEFAULT
         self.transform = weights.transforms()
-        self.trained_model = torchvision.models.efficientnet_b0(weights=weights).to(self.device)
+        self.currency_model = torchvision.models.efficientnet_b0(weights=weights).to(self.device)
+        self.face_model = torchvision.models.efficientnet_b0(weights=weights).to(self.device)
 
         # Adjust model
-        for param in self.trained_model.features.parameters():
+        for param in self.currency_model.features.parameters():
             param.requires_grad = False
 
-        self.trained_model.classifier = nn.Sequential(
+        for param in self.face_model.features.parameters():
+            param.requires_grad = False
+
+        self.currency_model.classifier = nn.Sequential(
             nn.Dropout(p=0.2, inplace=True),
-            nn.Linear(in_features=1280, out_features=len(self.class_names))
+            nn.Linear(in_features=1280, out_features=len(self.class_currency))
+            ).to(self.device)
+        
+        self.face_model.classifier = nn.Sequential(
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(in_features=1280, out_features=len(self.class_faces))
             ).to(self.device)
 
         # Load previously trained weights
-        self.trained_model.load_state_dict(torch.load(f=CURRENCY_MODEL_PATH, map_location=torch.device(self.device)))
+        self.currency_model.load_state_dict(torch.load(f=CURRENCY_MODEL_PATH, map_location=torch.device(self.device)))
+        self.face_model.load_state_dict(torch.load(f=FACE_MODEL_PATH, map_location=torch.device(self.device)))
 
 
     # Kill Thread
@@ -134,6 +146,9 @@ class Camera(QThread):
 
                 if handLandmarks[20][1] < handLandmarks[18][1]:     #Pinky
                     fingerCount = fingerCount+1
+        else:
+            self.mainWindow.detected.setText('unkown')
+            self.mainWindow.number.setText('xx')
 
         # Display finger count
         try:
@@ -158,11 +173,14 @@ class Camera(QThread):
 
                 # Draw Boundary Box around face
                 cv2.rectangle(frame,[x,y,w,h],(255,0,0),2)
-                self.mainWindow.detected.setText('Yehia')
-                self.mainWindow.number.setText('91.3%')
+
+            self.predict_image_class(frame,self.face_model)
         
     # Predict image class
     def currency_mode(self,frame):    
+        self.predict_image_class(frame,self.currency_model)
+
+    def predict_image_class(self,frame,model):
         # 1. Load in image and convert the tensor values to float32
         target_image =  torch.from_numpy(frame).permute(2, 0, 1).type(torch.float32)
         # 2. Divide the image pixel values by 255 to get them between [0, 1]
@@ -170,16 +188,16 @@ class Camera(QThread):
         # 3. Transform if necessary
         target_image = self.transform(target_image)
         # 4. Make sure the model is on the target device
-        self.trained_model.to(self.device)
+        model.to(self.device)
         # 5. Turn on model evaluation mode and inference mode
-        self.trained_model.eval()
+        model.eval()
 
         # Turn on inference context manager
         with torch.inference_mode():
             # Add an extra dimension to the image
             target_image = target_image.unsqueeze(dim=0)
             # Make a prediction on image with an extra dimension and send it to the target device
-            target_image_pred = self.trained_model(target_image.to(self.device))
+            target_image_pred = model(target_image.to(self.device))
             
         # 6. Convert logits -> prediction probabilities (using torch.softmax() for multi-class classification)
         target_image_pred_probs = torch.softmax(target_image_pred, dim=1)
@@ -187,8 +205,11 @@ class Camera(QThread):
         target_image_pred_label = torch.argmax(target_image_pred_probs, dim=1)
         
         # 8. Plot the image alongside the prediction and prediction probability
-        if target_image_pred_probs.max().cpu() > 0.8:
-            self.mainWindow.detected.setText(self.class_names[target_image_pred_label.cpu()])
+        if target_image_pred_probs.max().cpu() > 0.7:
+            if model == self.currency_model:
+                self.mainWindow.detected.setText(self.class_currency[target_image_pred_label.cpu()])
+            else:
+                self.mainWindow.detected.setText(self.class_faces[target_image_pred_label.cpu()])
             self.mainWindow.number.setText(f'{target_image_pred_probs.max().cpu()*100:.2f}%')
         else:
             self.mainWindow.detected.setText('unkown')
